@@ -18,32 +18,37 @@ router.get("/google", (req, res, next) => {
 });
 
 // Google OAuth Callback
-router.get(
-  "/google/callback",
-  passport.authenticate("google", { session: false }),
-  (req, res) => {
-    if (!req.user) {
-      return res.redirect(`${FRONTEND_URL}/login?error=authentication_failed`);
-    }
+router.get("/google/callback", (req, res, next) => {
+  const { error, state } = req.query;
 
-    // Generate JWT token
-    const token = jwt.sign(
-      { userId: req.user.user._id },
-      process.env.JWT_SECRET,
-      { expiresIn: "1h" }
-    );
-
-    // Retrieve callback URL from `state`
-    const callback = req.query.state || "/";
-
-    // Redirect to frontend with token & callback
-    res.redirect(
-      `${FRONTEND_URL}/auth/callback?token=${token}&callback=${encodeURIComponent(
-        callback
-      )}`
+  if (error === "access_denied") {
+    console.log("User denied Google OAuth access.");
+    return res.redirect(
+      `${process.env.FRONTEND_URL}/login?error=access_denied`
     );
   }
-);
+
+  passport.authenticate("google", { session: false }, (err, user) => {
+    if (err || !user) {
+      console.error("Google OAuth authentication failed:", err);
+      return res.redirect(
+        `${process.env.FRONTEND_URL}/login?error=authentication_failed`
+      );
+    }
+
+    const token = jwt.sign({ userId: user.user._id }, process.env.JWT_SECRET, {
+      expiresIn: "1h",
+    });
+
+    const callback = state || "/";
+
+    res.redirect(
+      `${
+        process.env.FRONTEND_URL
+      }/auth/callback?token=${token}&callback=${encodeURIComponent(callback)}`
+    );
+  })(req, res, next);
+});
 
 // Get logged-in user
 router.get("/me", authenticateJWT, async (req, res) => {

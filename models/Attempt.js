@@ -14,6 +14,7 @@ const AttemptSchema = new mongoose.Schema({
     index: true,
   },
   startTime: { type: Date, default: Date.now },
+  endTime: { type: Date, default: Date.now },
   score: { type: Number, default: null }, // Null if not submitted yet
   status: {
     type: String,

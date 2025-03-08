@@ -16,7 +16,6 @@ router.post("/save", authenticateJWT, async (req, res) => {
       questions,
       timeLimit,
       maxAttemptsPerUser,
-      tags,
       totalScore,
       dateOpens,
       dateCloses,
@@ -66,10 +65,10 @@ router.post("/save", authenticateJWT, async (req, res) => {
       category,
       coverImage,
       createdBy: req.user._id, // Save user ID from the authenticated request
+      creatorName: req.user.name,
       questions,
       timeLimit,
       maxAttemptsPerUser,
-      tags,
       totalScore,
       dateOpens: new Date(dateOpens),
       dateCloses: new Date(dateCloses),
@@ -95,7 +94,6 @@ router.put("/edit/:quizId", authenticateJWT, async (req, res) => {
       questions,
       timeLimit,
       maxAttemptsPerUser,
-      tags,
       totalScore,
       dateOpens,
       dateCloses,
@@ -161,7 +159,6 @@ router.put("/edit/:quizId", authenticateJWT, async (req, res) => {
     quiz.questions = questions;
     quiz.timeLimit = timeLimit;
     quiz.maxAttemptsPerUser = maxAttemptsPerUser;
-    quiz.tags = tags;
     quiz.totalScore = totalScore;
     quiz.dateOpens = new Date(dateOpens);
     quiz.dateCloses = new Date(dateCloses);
@@ -212,13 +209,38 @@ router.delete("/delete/:quizId", authenticateJWT, async (req, res) => {
 router.get("/all", async (req, res) => {
   try {
     const now = new Date();
+    const { search, category, page = 1, limit = 6 } = req.query;
 
-    const quizzes = await Quiz.find({
+    const filters = {
       published: true,
       dateOpens: { $lte: now },
-    }).select("-questions"); // Dont pass question
+    };
 
-    res.json({ quizzes });
+    // Apply search filter (case-insensitive)
+    if (search) {
+      filters.title = { $regex: search, $options: "i" };
+    }
+
+    // Apply category filter
+    if (category) {
+      filters.category = category;
+    }
+
+    // Pagination settings
+    const pageNumber = parseInt(page, 10) || 1;
+    const pageSize = parseInt(limit, 10) || 6;
+    const skip = (pageNumber - 1) * pageSize;
+
+    const quizzes = await Quiz.find(filters)
+      .select("-questions") // Exclude questions
+      .sort({ createdAt: -1 }) // Newest first
+      .skip(skip)
+      .limit(pageSize);
+
+    const totalQuizzes = await Quiz.countDocuments(filters);
+    const totalPages = Math.ceil(totalQuizzes / pageSize);
+
+    res.json({ quizzes, totalPages, currentPage: pageNumber });
   } catch (error) {
     console.error("Error fetching available quizzes:", error);
     res.status(500).json({ error: "Internal server error" });
@@ -237,22 +259,46 @@ router.get("/my-quizzes", authenticateJWT, async (req, res) => {
   }
 });
 
+router.get("/details/:quizId", async (req, res) => {
+  try {
+    const quiz = await Quiz.findById(req.params.quizId).select("-questions");
+    if (!quiz) return res.status(404).json({ error: "Quiz not found" });
+    const now = new Date();
+    if (!quiz.published || now < quiz.dateOpens) {
+      return res
+        .status(403)
+        .json({ error: "Access denied. Quiz is not available yet." });
+    }
+
+    return res.json({ quiz });
+  } catch (error) {
+    console.error("Error fetching quiz:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 router.get("/:quizId", authenticateJWT, async (req, res) => {
   try {
+    console.log("calling");
     const quiz = await Quiz.findById(req.params.quizId);
     if (!quiz) return res.status(404).json({ error: "Quiz not found" });
 
     const userId = req.user._id.toString();
     const isCreator = quiz.createdBy.toString() === userId; // Check if user is the creator
     const now = new Date();
-
     if ((!quiz.published || now < quiz.dateOpens) && !isCreator) {
       return res
         .status(403)
         .json({ error: "Access denied. Quiz is not available yet." });
     }
 
-    res.json({ quiz });
+    if (!isCreator) {
+      console.log("returning 202");
+      res.set("Cache-Control", "no-store");
+      return res.status(202).json({ quiz });
+    }
+
+    return res.json({ quiz });
   } catch (error) {
     console.error("Error fetching quiz:", error);
     res.status(500).json({ error: "Internal server error" });

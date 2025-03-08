@@ -44,9 +44,11 @@ mongoose
 // Routes
 const authRoutes = require("./routes/auth");
 const quizRoutes = require("./routes/quiz");
+const attemptRoutes = require("./routes/attempt");
 
 app.use("/auth", authRoutes);
 app.use("/quiz", quizRoutes);
+app.use("/attempt", attemptRoutes);
 
 // Run
 

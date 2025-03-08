@@ -3,6 +3,7 @@ const User = require("../models/User");
 
 const authenticateJWT = async (req, res, next) => {
   const authHeader = req.headers.authorization;
+  console.log(authHeader);
   if (!authHeader) {
     return res.status(401).json({ message: "Unauthorized" }); // No token provided
   }
@@ -12,7 +13,6 @@ const authenticateJWT = async (req, res, next) => {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const user = await User.findById(decoded.userId);
-    console.log(user);
     if (!user) {
       return res.status(401).json({ message: "Unauthorized" }); // User not found
     }
