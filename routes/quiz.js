@@ -6,6 +6,81 @@ const authenticateJWT = require("../middleware/authMiddleware"); // Middleware t
 
 const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000"; // Fallback to localhost
 
+/**
+ * @swagger
+ * /quiz/save:
+ *   post:
+ *     summary: Create a new quiz
+ *     description: Allows authenticated users to create a new quiz.
+ *     tags:
+ *       - Quizzes
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title:
+ *                 type: string
+ *                 example: "General Knowledge Quiz"
+ *               description:
+ *                 type: string
+ *                 example: "A quiz to test your general knowledge"
+ *               category:
+ *                 type: string
+ *                 example: "Trivia"
+ *               coverImage:
+ *                 type: string
+ *                 example: "https://example.com/image.png"
+ *               questions:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     questionText:
+ *                       type: string
+ *                       example: "What is the capital of France?"
+ *                     type:
+ *                       type: string
+ *                       enum: ["multiple-choice", "text"]
+ *                     options:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                       example: ["Paris", "London", "Berlin"]
+ *               timeLimit:
+ *                 type: integer
+ *                 example: 10
+ *               maxAttemptsPerUser:
+ *                 type: integer
+ *                 example: 3
+ *               totalScore:
+ *                 type: integer
+ *                 example: 100
+ *               dateOpens:
+ *                 type: string
+ *                 format: date-time
+ *                 example: "2025-03-10T08:00:00.000Z"
+ *               dateCloses:
+ *                 type: string
+ *                 format: date-time
+ *                 example: "2025-04-10T08:00:00.000Z"
+ *               published:
+ *                 type: boolean
+ *                 example: true
+ *     responses:
+ *       201:
+ *         description: Quiz created successfully.
+ *       400:
+ *         description: Validation error (e.g., missing required fields).
+ *       401:
+ *         description: Unauthorized (JWT missing or invalid).
+ *       500:
+ *         description: Internal server error.
+ */
 router.post("/save", authenticateJWT, async (req, res) => {
   try {
     const {
@@ -83,6 +158,92 @@ router.post("/save", authenticateJWT, async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /quiz/edit/{quizId}:
+ *   put:
+ *     summary: Edit an existing quiz
+ *     description: Allows the quiz creator to update an existing quiz. Cannot edit if the quiz has been attempted.
+ *     tags:
+ *       - Quizzes
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: quizId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the quiz to update.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title:
+ *                 type: string
+ *                 example: "Updated Quiz Title"
+ *               description:
+ *                 type: string
+ *                 example: "Updated quiz description"
+ *               category:
+ *                 type: string
+ *                 example: "Math"
+ *               coverImage:
+ *                 type: string
+ *                 example: "https://example.com/updated-image.png"
+ *               questions:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     questionText:
+ *                       type: string
+ *                       example: "Updated question text?"
+ *                     type:
+ *                       type: string
+ *                       enum: ["multiple-choice", "text"]
+ *                     options:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                       example: ["Option A", "Option B"]
+ *               timeLimit:
+ *                 type: integer
+ *                 example: 15
+ *               maxAttemptsPerUser:
+ *                 type: integer
+ *                 example: 5
+ *               totalScore:
+ *                 type: integer
+ *                 example: 120
+ *               dateOpens:
+ *                 type: string
+ *                 format: date-time
+ *                 example: "2025-03-15T08:00:00.000Z"
+ *               dateCloses:
+ *                 type: string
+ *                 format: date-time
+ *                 example: "2025-04-15T08:00:00.000Z"
+ *               published:
+ *                 type: boolean
+ *                 example: true
+ *     responses:
+ *       200:
+ *         description: Quiz updated successfully.
+ *       400:
+ *         description: Validation error (e.g., incorrect data format).
+ *       401:
+ *         description: Unauthorized (JWT missing or invalid).
+ *       403:
+ *         description: Forbidden (not the quiz creator or quiz has been attempted).
+ *       404:
+ *         description: Quiz not found.
+ *       500:
+ *         description: Internal server error.
+ */
 router.put("/edit/:quizId", authenticateJWT, async (req, res) => {
   try {
     const { quizId } = req.params;
@@ -175,6 +336,35 @@ router.put("/edit/:quizId", authenticateJWT, async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /quiz/delete/{quizId}:
+ *   delete:
+ *     summary: Delete a quiz
+ *     description: Allows the quiz creator to delete their quiz if it has not been attempted.
+ *     tags:
+ *       - Quizzes
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: quizId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the quiz to delete.
+ *     responses:
+ *       200:
+ *         description: Quiz deleted successfully.
+ *       401:
+ *         description: Unauthorized (JWT missing or invalid).
+ *       403:
+ *         description: Forbidden (not the quiz creator or quiz has been attempted).
+ *       404:
+ *         description: Quiz not found.
+ *       500:
+ *         description: Internal server error.
+ */
 router.delete("/delete/:quizId", authenticateJWT, async (req, res) => {
   try {
     const { quizId } = req.params;
@@ -206,6 +396,72 @@ router.delete("/delete/:quizId", authenticateJWT, async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /quiz/all:
+ *   get:
+ *     summary: Get all published quizzes
+ *     description: Retrieve a paginated list of available quizzes that are published and open.
+ *     tags:
+ *       - Quizzes
+ *     parameters:
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Search for quizzes by title (case-insensitive).
+ *       - in: query
+ *         name: category
+ *         schema:
+ *           type: string
+ *         description: Filter quizzes by category.
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number for pagination.
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 6
+ *         description: Number of quizzes per page.
+ *     responses:
+ *       200:
+ *         description: A paginated list of quizzes.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 quizzes:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       _id:
+ *                         type: string
+ *                         example: "65d3f5a3c3e2b56a1a3b4c5d"
+ *                       title:
+ *                         type: string
+ *                         example: "General Knowledge Quiz"
+ *                       category:
+ *                         type: string
+ *                         example: "Trivia"
+ *                       dateOpens:
+ *                         type: string
+ *                         format: date-time
+ *                         example: "2025-03-09T12:00:00.000Z"
+ *                 totalPages:
+ *                   type: integer
+ *                   example: 5
+ *                 currentPage:
+ *                   type: integer
+ *                   example: 1
+ *       500:
+ *         description: Internal server error.
+ */
 router.get("/all", async (req, res) => {
   try {
     const now = new Date();
@@ -247,6 +503,47 @@ router.get("/all", async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /quiz/my-quizzes:
+ *   get:
+ *     summary: Get quizzes created by the authenticated user
+ *     description: Retrieve a list of quizzes created by the logged-in user. Requires authentication.
+ *     tags:
+ *       - Quizzes
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: A list of quizzes created by the user.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 quizzes:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       _id:
+ *                         type: string
+ *                         example: "65d3f5a3c3e2b56a1a3b4c5d"
+ *                       title:
+ *                         type: string
+ *                         example: "JavaScript Basics Quiz"
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
+ *                         example: "2025-03-09T12:00:00.000Z"
+ *                       category:
+ *                         type: string
+ *                         example: "Programming"
+ *       401:
+ *         description: Unauthorized - User is not logged in or token is invalid.
+ *       500:
+ *         description: Internal server error.
+ */
 router.get("/my-quizzes", authenticateJWT, async (req, res) => {
   try {
     const userId = req.user._id; // Get user ID from JWT
@@ -259,6 +556,55 @@ router.get("/my-quizzes", authenticateJWT, async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /quiz/details/{quizId}:
+ *   get:
+ *     summary: Get public details of a quiz
+ *     description: Retrieve quiz details without questions. Only published quizzes that are open can be accessed.
+ *     tags:
+ *       - Quizzes
+ *     parameters:
+ *       - in: path
+ *         name: quizId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the quiz to retrieve.
+ *     responses:
+ *       200:
+ *         description: Quiz details retrieved successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 quiz:
+ *                   type: object
+ *                   properties:
+ *                     _id:
+ *                       type: string
+ *                       example: "65d3f5a3c3e2b56a1a3b4c5d"
+ *                     title:
+ *                       type: string
+ *                       example: "Science Trivia"
+ *                     category:
+ *                       type: string
+ *                       example: "General Knowledge"
+ *                     published:
+ *                       type: boolean
+ *                       example: true
+ *                     dateOpens:
+ *                       type: string
+ *                       format: date-time
+ *                       example: "2025-03-10T08:00:00.000Z"
+ *       403:
+ *         description: Access denied - Quiz is not available yet.
+ *       404:
+ *         description: Quiz not found.
+ *       500:
+ *         description: Internal server error.
+ */
 router.get("/details/:quizId", async (req, res) => {
   try {
     const quiz = await Quiz.findById(req.params.quizId).select("-questions");
@@ -277,6 +623,59 @@ router.get("/details/:quizId", async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /quiz/{quizId}:
+ *   get:
+ *     summary: Get full quiz details (requires authentication)
+ *     description: Retrieve quiz details, including questions if the user is the creator. If the quiz is unpublished or not open yet, only the creator can access it.
+ *     tags:
+ *       - Quizzes
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: quizId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the quiz to retrieve.
+ *     responses:
+ *       200:
+ *         description: Quiz details retrieved successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 quiz:
+ *                   type: object
+ *                   properties:
+ *                     _id:
+ *                       type: string
+ *                       example: "65d3f5a3c3e2b56a1a3b4c5d"
+ *                     title:
+ *                       type: string
+ *                       example: "Math Quiz"
+ *                     createdBy:
+ *                       type: string
+ *                       example: "60d3f5a3c3e2b56a1a3b4c5d"
+ *                     published:
+ *                       type: boolean
+ *                       example: true
+ *                     dateOpens:
+ *                       type: string
+ *                       format: date-time
+ *                       example: "2025-03-10T08:00:00.000Z"
+ *       202:
+ *         description: Quiz retrieved but limited access (not the creator).
+ *       403:
+ *         description: Access denied - Quiz is not available yet.
+ *       404:
+ *         description: Quiz not found.
+ *       500:
+ *         description: Internal server error.
+ */
 router.get("/:quizId", authenticateJWT, async (req, res) => {
   try {
     console.log("calling");

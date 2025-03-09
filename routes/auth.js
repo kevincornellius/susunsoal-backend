@@ -7,7 +7,25 @@ const authenticateJWT = require("../middleware/authMiddleware"); // Middleware t
 
 const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000"; // Fallback to localhost
 
-// Redirect to Google OAuth
+/**
+ * @swagger
+ * /auth/google:
+ *   get:
+ *     summary: Redirect to Google OAuth
+ *     description: Redirects users to Google's OAuth page for authentication.
+ *     tags:
+ *       - Authentication
+ *     parameters:
+ *       - in: query
+ *         name: state
+ *         schema:
+ *           type: string
+ *         required: false
+ *         description: Optional callback URL to redirect the user after authentication.
+ *     responses:
+ *       302:
+ *         description: Redirects to Google's OAuth page.
+ */
 router.get("/google", (req, res, next) => {
   const { state } = req.query; // Get callback URL from frontend
   const authOptions = {
@@ -17,7 +35,33 @@ router.get("/google", (req, res, next) => {
   passport.authenticate("google", authOptions)(req, res, next);
 });
 
-// Google OAuth Callback
+/**
+ * @swagger
+ * /auth/google/callback:
+ *   get:
+ *     summary: Google OAuth Callback
+ *     description: Handles the response from Google after user authentication.
+ *     tags:
+ *       - Authentication
+ *     parameters:
+ *       - in: query
+ *         name: error
+ *         schema:
+ *           type: string
+ *         required: false
+ *         description: Error message if authentication was denied or failed.
+ *       - in: query
+ *         name: state
+ *         schema:
+ *           type: string
+ *         required: false
+ *         description: The callback URL provided in the initial OAuth request.
+ *     responses:
+ *       302:
+ *         description: Redirects to frontend with authentication token on success, or error message on failure.
+ *       401:
+ *         description: Authentication failed.
+ */
 router.get("/google/callback", (req, res, next) => {
   const { error, state } = req.query;
 
@@ -50,7 +94,38 @@ router.get("/google/callback", (req, res, next) => {
   })(req, res, next);
 });
 
-// Get logged-in user
+/**
+ * @swagger
+ * /auth/me:
+ *   get:
+ *     summary: Get logged-in user
+ *     description: Returns the currently authenticated user's details.
+ *     tags:
+ *       - Authentication
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Returns user data.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 user:
+ *                   type: object
+ *                   properties:
+ *                     _id:
+ *                       type: string
+ *                     email:
+ *                       type: string
+ *                     name:
+ *                       type: string
+ *       401:
+ *         description: Unauthorized (JWT missing or invalid).
+ *       500:
+ *         description: Internal server error.
+ */
 router.get("/me", authenticateJWT, async (req, res) => {
   try {
     const user = await User.findById(req.user._id);

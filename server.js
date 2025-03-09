@@ -3,6 +3,7 @@ const mongoose = require("mongoose");
 const cors = require("cors");
 require("dotenv").config();
 const session = require("express-session");
+const setupSwagger = require("./swaggerConfig"); // swagger
 
 // Passport [Buat OAuth]
 const passport = require("passport");
@@ -17,7 +18,7 @@ const corsOptions = {
 };
 
 app.use(express.json());
-app.use(cors());
+app.use(cors(corsOptions));
 
 // Express-Session
 app.use(
@@ -51,6 +52,8 @@ app.use("/quiz", quizRoutes);
 app.use("/attempt", attemptRoutes);
 
 // Run
+
+setupSwagger(app);
 
 app.get("/", (req, res) => {
   res.send("Server is running!");

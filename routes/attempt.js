@@ -6,6 +6,31 @@ const authMiddleware = require("../middleware/authMiddleware");
 const router = express.Router();
 const agenda = require("../agenda");
 
+/**
+ * @swagger
+ * /attempt/my-attempts:
+ *   get:
+ *     summary: Get all attempts of the logged-in user
+ *     description: Retrieves all quiz attempts made by the authenticated user.
+ *     tags:
+ *       - Attempts
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Returns a list of attempts.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 attempts:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *       500:
+ *         description: Internal server error.
+ */
 router.get("/my-attempts", authMiddleware, async (req, res) => {
   try {
     console.log("mine");
@@ -20,6 +45,33 @@ router.get("/my-attempts", authMiddleware, async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /attempt/submissions/{quizId}:
+ *   get:
+ *     summary: Get all attempts for a specific quiz
+ *     description: Retrieves all attempts of a quiz, only accessible to the quiz creator.
+ *     tags:
+ *       - Attempts
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: quizId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the quiz.
+ *     responses:
+ *       200:
+ *         description: Returns a list of attempts for the quiz.
+ *       403:
+ *         description: Unauthorized (user is not the quiz creator).
+ *       404:
+ *         description: Quiz not found.
+ *       500:
+ *         description: Internal server error.
+ */
 router.get("/submissions/:quizId", authMiddleware, async (req, res) => {
   try {
     const { quizId } = req.params;
@@ -40,6 +92,33 @@ router.get("/submissions/:quizId", authMiddleware, async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /attempt/{attemptId}:
+ *   get:
+ *     summary: Get a specific quiz attempt
+ *     description: Fetches a quiz attempt if it's submitted and the user has access.
+ *     tags:
+ *       - Attempts
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: attemptId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the quiz attempt.
+ *     responses:
+ *       200:
+ *         description: Returns the quiz attempt details.
+ *       403:
+ *         description: Unauthorized access.
+ *       404:
+ *         description: Attempt not found or quiz not found.
+ *       500:
+ *         description: Internal server error.
+ */
 router.get("/:attemptId", authMiddleware, async (req, res) => {
   try {
     const { attemptId } = req.params;
@@ -78,6 +157,31 @@ router.get("/:attemptId", authMiddleware, async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /attempt/quiz/{quizId}:
+ *   get:
+ *     summary: Get an ongoing quiz attempt
+ *     description: Fetches an in-progress quiz attempt for the logged-in user.
+ *     tags:
+ *       - Attempts
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: quizId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the quiz.
+ *     responses:
+ *       200:
+ *         description: Returns the ongoing quiz attempt.
+ *       404:
+ *         description: No in-progress attempt found.
+ *       500:
+ *         description: Internal server error.
+ */
 router.get("/quiz/:quizId", authMiddleware, async (req, res) => {
   try {
     const { quizId } = req.params;
@@ -102,6 +206,34 @@ router.get("/quiz/:quizId", authMiddleware, async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /attempt/start:
+ *   post:
+ *     summary: Start a new quiz attempt
+ *     description: Creates a new quiz attempt for the logged-in user.
+ *     tags:
+ *       - Attempts
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               quizId:
+ *                 type: string
+ *                 description: The ID of the quiz.
+ *     responses:
+ *       201:
+ *         description: Returns the newly created quiz attempt.
+ *       404:
+ *         description: Quiz not found.
+ *       500:
+ *         description: Internal server error.
+ */
 router.post("/start", authMiddleware, async (req, res) => {
   try {
     const { quizId } = req.body;
@@ -142,6 +274,39 @@ router.post("/start", authMiddleware, async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /attempt/save:
+ *   post:
+ *     summary: Save an answer during a quiz attempt
+ *     description: Updates an in-progress quiz attempt with the selected answer.
+ *     tags:
+ *       - Attempts
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               attemptId:
+ *                 type: string
+ *               questionId:
+ *                 type: string
+ *               selectedAnswer:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Answer saved successfully.
+ *       400:
+ *         description: Attempt already submitted.
+ *       404:
+ *         description: Attempt not found.
+ *       500:
+ *         description: Internal server error.
+ */
 router.post("/save", authMiddleware, async (req, res) => {
   try {
     const { attemptId, questionId, selectedAnswer } = req.body;
@@ -177,6 +342,35 @@ router.post("/save", authMiddleware, async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /attempt/submit:
+ *   post:
+ *     summary: Submit a completed quiz attempt
+ *     description: Marks a quiz attempt as submitted and calculates the score.
+ *     tags:
+ *       - Attempts
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               attemptId:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Attempt submitted successfully.
+ *       400:
+ *         description: Attempt already submitted.
+ *       404:
+ *         description: Attempt or quiz not found.
+ *       500:
+ *         description: Internal server error.
+ */
 router.post("/submit", authMiddleware, async (req, res) => {
   try {
     const { attemptId } = req.body;
