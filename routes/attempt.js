@@ -1,53 +1,104 @@
 const express = require("express");
 const Attempt = require("../models/Attempt");
+const User = require("../models/User");
 const Quiz = require("../models/Quiz");
 const authMiddleware = require("../middleware/authMiddleware");
 const router = express.Router();
 const agenda = require("../agenda");
 
-//TODO
+router.get("/my-attempts", authMiddleware, async (req, res) => {
+  try {
+    console.log("mine");
+    const userId = req.user._id;
+    console.log("getting", userId);
+    const attempts = await Attempt.find({ userId });
+
+    res.json({ attempts });
+  } catch (error) {
+    console.error("Error fetching user attempts", error);
+    res.status(500).json({ error: "Internal servaer error" });
+  }
+});
+
+router.get("/submissions/:quizId", authMiddleware, async (req, res) => {
+  try {
+    const { quizId } = req.params;
+    const userId = req.user._id;
+
+    const quiz = await Quiz.findById(quizId);
+    if (!quiz) return res.status(404).json({ message: "Quiz not found" });
+
+    if (quiz.createdBy.toString() !== userId.toString()) {
+      return res.status(403).json({ message: "Unauthorized" });
+    }
+
+    const attempts = await Attempt.find({ quizId });
+    res.json({ attempts });
+  } catch (error) {
+    console.error("Error fetching  attempt", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 router.get("/:attemptId", authMiddleware, async (req, res) => {
   try {
     const { attemptId } = req.params;
-    const userId = req.user.id;
-    const now = new Date();
+    const userId = req.user._id;
 
-    const attempt = await Attempt.findById(attemptId)
-      .populate("quizId")
-      .select("answers status startTime endTime userId quizId");
+    console.log("attemps", userId, attemptId);
+    // Find the attempt and populate quiz & answers
+    const attempt = await Attempt.findById(attemptId);
 
     if (!attempt) return res.status(404).json({ message: "Attempt not found" });
+    if (attempt.status !== "submitted")
+      return res.status(403).json({ message: "Attempt is not submitted yet" });
 
-    if (attempt.userId.toString() !== userId)
-      return res.status(403).json({ message: "Unauthorized" });
+    const quiz = attempt.quizId;
+    if (!quiz) return res.status(404).json({ message: "Quiz not found" });
 
-    // Auto-submit if time is up
-    if (attempt.status === "in-progress" && now >= attempt.endTime) {
-      console.log(`Auto-submitting expired attempt: ${attemptId}`);
-      attempt.status = "submitted";
-      attempt.score = calculateScore(attempt.answers, attempt.quizId);
-      await attempt.save();
+    const attemptedQuiz = await Quiz.findById(quiz);
+    if (!attemptedQuiz)
+      return res.status(404).json({ message: "Quiz not found" });
+
+    if (
+      attempt.userId.toString() === userId.toString() ||
+      attemptedQuiz.createdBy.toString() == userId.toString()
+    ) {
+      return res.json({
+        attempt,
+        attemptedQuiz,
+        attemptorName: attempt.userName,
+      });
     }
 
-    // **Debugging log**
-    console.log("Fetched attempt:", JSON.stringify(attempt, null, 2));
-
-    // **Ensure `answers` is included in response**
-    res.status(200).json({
-      attemptId: attempt._id,
-      status: attempt.status,
-      quiz: {
-        title: attempt.quizId.title,
-        timeLimit: attempt.quizId.timeLimit,
-      },
-      answers: attempt.answers ?? [], // Make sure answers is always included
-      startTime: attempt.startTime,
-      endTime: attempt.endTime,
-      ...(attempt.status === "submitted" && { score: attempt.score }),
-    });
+    return res.status(403).json("Unauthorized");
   } catch (error) {
-    console.error("Error fetching attempt:", error);
-    res.status(500).json({ message: "Server error", error: error.message });
+    console.error("Error fetching  attempt", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.get("/quiz/:quizId", authMiddleware, async (req, res) => {
+  try {
+    const { quizId } = req.params;
+    const userId = req.user._id;
+
+    const attempt = await Attempt.findOne({
+      userId,
+      quizId,
+      status: "in-progress",
+    });
+
+    if (!attempt) {
+      return res
+        .status(404)
+        .json({ message: "in progress attempt does not exist" });
+    }
+
+    res.status(200).json(attempt);
+  } catch (err) {
+    console.error("Error fetching ongoing attempt:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
   }
 });
 
@@ -55,6 +106,7 @@ router.post("/start", authMiddleware, async (req, res) => {
   try {
     const { quizId } = req.body;
     const userId = req.user._id;
+    console.log("Start");
 
     const quiz = await Quiz.findById(quizId);
     if (!quiz) return res.status(404).json({ message: "Quiz not found" });
@@ -70,11 +122,13 @@ router.post("/start", authMiddleware, async (req, res) => {
     const attempt = new Attempt({
       userId,
       quizId,
+      quizTitle: quiz.title,
+      userName: req.user.name,
       status: "in-progress",
       startTime: now,
       endTime,
     });
-
+    console.log("created", attempt._id);
     await attempt.save();
 
     // Schedule auto-submit job
@@ -82,7 +136,7 @@ router.post("/start", authMiddleware, async (req, res) => {
       attemptId: attempt._id,
     });
 
-    res.status(201).json({ attempt, endTime });
+    res.status(201).json(attempt);
   } catch (err) {
     res.status(500).json({ message: "Server error", error: err.message });
   }
@@ -92,7 +146,7 @@ router.post("/save", authMiddleware, async (req, res) => {
   try {
     const { attemptId, questionId, selectedAnswer } = req.body;
     const attempt = await Attempt.findById(attemptId);
-
+    console.log(attempt);
     if (!attempt) return res.status(404).json({ message: "Attempt not found" });
     if (attempt.status !== "in-progress")
       return res.status(400).json({ message: "Attempt already submitted" });
@@ -102,15 +156,23 @@ router.post("/save", authMiddleware, async (req, res) => {
     );
 
     if (existingIndex >= 0) {
-      attempt.answers[existingIndex].selectedAnswer = selectedAnswer;
+      if (selectedAnswer === "") {
+        attempt.answers.splice(existingIndex, 1);
+      } else {
+        attempt.answers[existingIndex].selectedAnswer = selectedAnswer;
+      }
     } else {
-      attempt.answers.push({ questionId, selectedAnswer });
+      if (selectedAnswer !== "") {
+        attempt.answers.push({ questionId, selectedAnswer });
+      }
     }
+    console.log("Saved");
 
     await attempt.save();
 
     res.json({ message: "Answer saved", attempt });
   } catch (err) {
+    console.log(err);
     res.status(500).json({ message: "Server error", error: err.message });
   }
 });
@@ -136,7 +198,7 @@ router.post("/submit", authMiddleware, async (req, res) => {
     quiz.totalScore += attempt.score;
     quiz.attemptCount += 1;
     await quiz.save();
-
+    console.log("Submit");
     res.json({ message: "Attempt submitted", attempt, quiz });
   } catch (err) {
     res.status(500).json({ message: "Server error", error: err.message });

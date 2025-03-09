@@ -13,6 +13,8 @@ const AttemptSchema = new mongoose.Schema({
     required: true,
     index: true,
   },
+  quizTitle: { type: String, default: "" },
+  userName: { type: String, default: "" },
   startTime: { type: Date, default: Date.now },
   endTime: { type: Date, default: Date.now },
   score: { type: Number, default: null }, // Null if not submitted yet
