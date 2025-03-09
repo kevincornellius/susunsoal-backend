@@ -17,7 +17,7 @@ const corsOptions = {
 };
 
 app.use(express.json());
-app.use(cors(corsOptions));
+app.use(cors());
 
 // Express-Session
 app.use(
@@ -57,3 +57,11 @@ app.get("/", (req, res) => {
 });
 
 app.listen(5000, () => console.log("Server running on port 5000"));
+
+module.exports = app;
+
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+  });
+}
