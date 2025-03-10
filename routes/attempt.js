@@ -33,9 +33,7 @@ const agenda = require("../agenda");
  */
 router.get("/my-attempts", authMiddleware, async (req, res) => {
   try {
-    console.log("mine");
     const userId = req.user._id;
-    console.log("getting", userId);
     const attempts = await Attempt.find({ userId });
 
     res.json({ attempts });
@@ -124,7 +122,6 @@ router.get("/:attemptId", authMiddleware, async (req, res) => {
     const { attemptId } = req.params;
     const userId = req.user._id;
 
-    console.log("attemps", userId, attemptId);
     // Find the attempt and populate quiz & answers
     const attempt = await Attempt.findById(attemptId);
 
@@ -238,7 +235,6 @@ router.post("/start", authMiddleware, async (req, res) => {
   try {
     const { quizId } = req.body;
     const userId = req.user._id;
-    console.log("Start");
 
     const quiz = await Quiz.findById(quizId);
     if (!quiz) return res.status(404).json({ message: "Quiz not found" });
@@ -260,7 +256,6 @@ router.post("/start", authMiddleware, async (req, res) => {
       startTime: now,
       endTime,
     });
-    console.log("created", attempt._id);
     await attempt.save();
 
     // Schedule auto-submit job
@@ -311,7 +306,7 @@ router.post("/save", authMiddleware, async (req, res) => {
   try {
     const { attemptId, questionId, selectedAnswer } = req.body;
     const attempt = await Attempt.findById(attemptId);
-    console.log(attempt);
+
     if (!attempt) return res.status(404).json({ message: "Attempt not found" });
     if (attempt.status !== "in-progress")
       return res.status(400).json({ message: "Attempt already submitted" });

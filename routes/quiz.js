@@ -678,7 +678,6 @@ router.get("/details/:quizId", async (req, res) => {
  */
 router.get("/:quizId", authenticateJWT, async (req, res) => {
   try {
-    console.log("calling");
     const quiz = await Quiz.findById(req.params.quizId);
     if (!quiz) return res.status(404).json({ error: "Quiz not found" });
 
@@ -692,7 +691,6 @@ router.get("/:quizId", authenticateJWT, async (req, res) => {
     }
 
     if (!isCreator) {
-      console.log("returning 202");
       res.set("Cache-Control", "no-store");
       return res.status(202).json({ quiz });
     }
